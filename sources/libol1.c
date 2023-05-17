@@ -1396,14 +1396,17 @@ static void GetOctLnk(  MshSct *msh, itg typ, fpn VerCrd[3], itg *MinItm,
 #ifdef WITH_PROFILING
    msh->CptOct++;
 #endif
+   // printf("GetOctLnk [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n", MinCrd[0], MinCrd[1], MinCrd[2], MaxCrd[0], MaxCrd[1], MaxCrd[2]);
+   printf("GetOctLnk [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+          (MinCrd[0] + MaxCrd[0]) / 2, (MinCrd[1] + MaxCrd[1]) / 2,
+          (MinCrd[2] + MaxCrd[2]) / 2, MaxCrd[0] - MinCrd[0],
+          MaxCrd[1] - MinCrd[1], MaxCrd[2] - MinCrd[2]);
 
-   if(oct->sub)
-   {
-      // Check each sons recursively as long as the minimum distance
-      // between the vertex and the octant is lower than
-      // the current distance from the closest entity
-      for(i=0;i<8;i++)
-      {
+   if(oct->sub) {
+     // Check each sons recursively as long as the minimum distance
+     // between the vertex and the octant is lower than
+     // the current distance from the closest entity
+     for (i = 0; i < 8; i++) {
 #ifdef WITH_FAST_MODE
          son = &oct->son[i];
 
@@ -1411,6 +1414,7 @@ static void GetOctLnk(  MshSct *msh, itg typ, fpn VerCrd[3], itg *MinItm,
             GetOctLnk(  msh, typ, VerCrd, MinItm, MinDis, son,
                         son->MinCrd, son->MaxCrd, UsrPrc, UsrDat, ThrIdx );
 #else
+         printf("Octant %d\n", i);
          SetSonCrd(i, SonMin, SonMax, MinCrd, MaxCrd);
 
          if(DisVerOct(VerCrd, SonMin, SonMax) <= *MinDis)
@@ -1462,6 +1466,7 @@ static void GetOctLnk(  MshSct *msh, itg typ, fpn VerCrd[3], itg *MinItm,
             // Otherwise, we need to install it in the local thread-safe buffer
             SetItm(msh, LolTypTri, lnk->idx, 0, ThrIdx);
             CurDis = DisVerTri(msh, VerCrd, &ThrMsh->tri);
+            printf("[DEBUG] %d => %.15g\n", lnk->idx, CurDis);
 #endif
          }
          else if(lnk->typ == LolTypQad)
@@ -1493,6 +1498,8 @@ static void GetOctLnk(  MshSct *msh, itg typ, fpn VerCrd[3], itg *MinItm,
             *MinDis = CurDis;
          }
       }while((lnk = lnk->nex));
+   } else {
+      printf("Empty octant\n");
    }
 }
 
@@ -1939,29 +1946,50 @@ static void AddTri(  MshSct *msh, OtrSct *otr, OctSct *oct,
 {
    itg i;
    fpn SonMin[3], SonMax[3];
-
-   if(oct->sub)
-   {
-      for(i=0;i<8;i++)
-      {
+   if (msh->thr[0]->tri.idx == 109) {
+     // printf("AddTri [%.16g, %.16g, %.16g, %.16g, %.16g, %.16g]\n", MinCrd[0], MinCrd[1], MinCrd[2], MaxCrd[0], MaxCrd[1], MaxCrd[2]);
+     printf("AddTri [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+            (MinCrd[0] + MaxCrd[0]) / 2, (MinCrd[1] + MaxCrd[1]) / 2,
+            (MinCrd[2] + MaxCrd[2]) / 2, MaxCrd[0] - MinCrd[0],
+            MaxCrd[1] - MinCrd[1], MaxCrd[2] - MinCrd[2]);
+   }
+   if (oct->sub) {
+       for (i = 0; i < 8; i++) {
          SetSonCrd(i, SonMin, SonMax, MinCrd, MaxCrd);
          SetTmpHex(&otr->thr[0]->hex, SonMin, SonMax);
-
-         if(TriIntHex(&msh->thr[0]->tri, &otr->thr[0]->hex, otr->eps))
-            AddTri(msh, otr, oct->son+i, SonMin, SonMax);
+         if (i == 6 && fabs((SonMax[0] - SonMin[0]) - 255) < 1e-10 &&
+             msh->thr[0]->tri.idx == 109) {
+           printf("coucou\n");
+         }
+           if (TriIntHex(&msh->thr[0]->tri, &otr->thr[0]->hex, otr->eps))
+             AddTri(msh, otr, oct->son + i, SonMin, SonMax);
+           else if (msh->thr[0]->tri.idx == 109) {
+             printf("Not inter %d [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n", i,
+                    (SonMin[0] + SonMax[0]) / 2, (SonMin[1] + SonMax[1]) / 2,
+                    (SonMin[2] + SonMax[2]) / 2, SonMax[0] - SonMin[0],
+                    SonMax[1] - SonMin[1], SonMax[2] - SonMin[2]);
+           }
       }
    }
    else
    {
-      LnkItm(  otr, oct, LolTypTri, msh->thr[0]->tri.idx,
-               (unsigned char)msh->thr[0]->tri.ani );
-
-      if( (oct->lvl < otr->GrdLvl)
-      || ((oct->NmbFac >= oct->MaxItm) && (oct->lvl < MaxOctLvl)) )
-      {
+     LnkItm(otr, oct, LolTypTri, msh->thr[0]->tri.idx,
+               (unsigned char)msh->thr[0]->tri.ani);
+     if (msh->thr[0]->tri.idx == 109) {
+       printf("REAL AddTri [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+              (MinCrd[0] + MaxCrd[0]) / 2, (MinCrd[1] + MaxCrd[1]) / 2,
+              (MinCrd[2] + MaxCrd[2]) / 2, MaxCrd[0] - MinCrd[0],
+              MaxCrd[1] - MinCrd[1], MaxCrd[2] - MinCrd[2]);
+     }
+       if ((oct->lvl < otr->GrdLvl) ||
+           ((oct->NmbFac >= oct->MaxItm) && (oct->lvl < MaxOctLvl))) {
          SubOct(msh, otr, oct, MinCrd, MaxCrd);
-      }
-   }
+         printf("SubOct [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+                (MinCrd[0] + MaxCrd[0]) / 2, (MinCrd[1] + MaxCrd[1]) / 2,
+                (MinCrd[2] + MaxCrd[2]) / 2, MaxCrd[0] - MinCrd[0],
+                MaxCrd[1] - MinCrd[1], MaxCrd[2] - MinCrd[2]);
+       }
+     }
 }
 
 
@@ -2119,8 +2147,21 @@ static void SubOct(  MshSct *msh, OtrSct *otr, OctSct *oct,
             SetSonCrd(i, SonMin, SonMax, MinCrd, MaxCrd);
             SetTmpHex(&otr->thr[0]->hex, SonMin, SonMax);
 
-            if(TriIntHex(&msh->thr[0]->tri, &otr->thr[0]->hex, otr->eps))
-               LnkItm(otr, oct->son+i, LolTypTri, lnk->idx, oct->ani);
+            if(TriIntHex(&msh->thr[0]->tri, &otr->thr[0]->hex, otr->eps)) {
+              if (msh->thr[0]->tri.idx == 109) {
+                printf(
+                    "moving to [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+                    (SonMin[0] + SonMax[0]) / 2, (SonMin[1] + SonMax[1]) / 2,
+                    (SonMin[2] + SonMax[2]) / 2, SonMax[0] - SonMin[0],
+                    SonMax[1] - SonMin[1], SonMax[2] - SonMin[2]);
+              }
+                LnkItm(otr, oct->son + i, LolTypTri, lnk->idx, oct->ani);
+            } else {
+              printf("NOT moving to [%.16g, %.16g, %.16g]-[%.16g, %.16g, %.16g]\n",
+                     (SonMin[0] + SonMax[0]) / 2, (SonMin[1] + SonMax[1]) / 2,
+                     (SonMin[2] + SonMax[2]) / 2, SonMax[0] - SonMin[0],
+                     SonMax[1] - SonMin[1], SonMax[2] - SonMin[2]);
+            }
          }
       }
       else if(lnk->typ == LolTypQad)
@@ -3379,10 +3420,9 @@ static fpn GetTriAni(TriSct *tri)
    MaxLen = MAX(len, MaxLen);
    len = DisPow(tri->ver[2]->crd, tri->ver[0]->crd);
    MaxLen = MAX(len, MaxLen);
-
    // Limit the anisotropic ratio to 255
-   if(MaxLen > 255. * 255. * srf)
-      return(255.);
+   if (MaxLen > 255. * 255. * srf)
+     return (255.);
    else
       return(sqrt(MaxLen / srf));
 }
